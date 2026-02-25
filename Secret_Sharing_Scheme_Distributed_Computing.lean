@@ -10,6 +10,7 @@ import Mathlib.Probability.ProbabilityMassFunction.Basic
 import Mathlib.Probability.Distributions.Uniform
 import Mathlib.LinearAlgebra.Matrix.Rank
 import Mathlib.LinearAlgebra.Lagrange
+import Mathlib.Data.Set.Card
 
 -- set_option maxHeartbeats 0
 -- set_option maxRecDepth 4000
@@ -319,21 +320,21 @@ structure RealizedSecretSharingScheme (n : ℕ) (Γ : AccessStructure n) extends
 The size of secret is log(|S|).
 -/
 noncomputable def secret_size {n : ℕ} (scheme : SecretSharingScheme n) : ℝ :=
-  letI := scheme.hSecret
+  letI _ := scheme.hSecret
   Real.log (Fintype.card scheme.Secret)
 
 /-
 The size of the share of participant i is log(|Si|).
 -/
 noncomputable def share_size {n : ℕ} (scheme : SecretSharingScheme n) (i : Fin n) : ℝ :=
-  letI := scheme.hShare i
+  letI _ := scheme.hShare i
   Real.log (Fintype.card (scheme.Share i))
 
 /-
 The maximum share size is max_j log(|Sj|).
 -/
 noncomputable def max_share_size {n : ℕ} (scheme : SecretSharingScheme n) : ℝ :=
-  letI := scheme.hShare
+  letI _ := scheme.hShare
   (Finset.univ.image (fun i => share_size scheme i)).max.getD 0
 
 /-
@@ -414,7 +415,7 @@ Definition of the polynomial used in Shamir's Secret Sharing Scheme.
 -/
 universe u
 
-variable {F : Type*} [Field F] [Fintype F] [DecidableEq F]
+variable {F : Type*} [Field F] [Fintype F] -- [DecidableEq F]
 
 /-- Shamir's secret sharing polynomial evaluation.
     s is the secret (constant term).
@@ -440,14 +441,14 @@ theorem FiniteField.card_ge_two (F : Type*) [Field F] [Fintype F] : Fintype.card
   exact Nat.succ_le_of_lt h_card
 
 /-- Shamir's Secret Sharing Scheme. -/
-def shamirScheme (n t : ℕ) (hF : Fintype.card F ≥ 2)
+def shamirScheme (n t : ℕ)
     (x : Fin n → F)
     (_h_distinct : Function.Injective x)
     (_h_nonzero : ∀ i, x i ≠ 0) : SecretSharingScheme n where
   Secret := F
   Random := Fin (t - 1) → F
   hSecret := inferInstance
-  hSecret_card := hF
+  hSecret_card := FiniteField.card_ge_two F
   Share := fun _ => F
   hShare := fun _ => inferInstance
   hRandom := inferInstance
@@ -575,23 +576,23 @@ lemma shamir_fiber_card_constant (n t : ℕ) (x : Fin n → F) (h_distinct : Fun
   · intro i hi; have := congr_fun m.2 ⟨ i, hi ⟩ ; simp_all  [ shamir_poly ] ;
     simp_all  [ add_mul, Finset.sum_add_distrib ]
 
-lemma shamir_shares_uniform (n t : ℕ) (_hF : Fintype.card F ≥ 2)
+lemma shamir_shares_uniform (n t : ℕ)
     (x : Fin n → F) (h_distinct : Function.Injective x) (h_nonzero : ∀ i, x i ≠ 0)
     (B : Set (Fin n)) (hB : B.ncard < t) (s : F) :
     PMF.map (fun r => fun (i : B) => shamir_poly t s r (x i)) (uniform_coeffs t) = PMF.uniformOfFintype (B → F) := by
   apply map_uniform_of_fiber_card_eq;
   convert shamir_fiber_card_constant n t x h_distinct h_nonzero B hB s |> Classical.choose_spec
 
-theorem shamir_perfect_security (n t : ℕ) (hF : Fintype.card F ≥ 2)
-    (x : Fin n → F) (h_distinct : Function.Injective x) (h_nonzero : ∀ i, x i ≠ 0) (_ht : t > 0) (_htn : t ≤ n) :
-    PerfectSecurity (shamirScheme n t hF x h_distinct h_nonzero)
+theorem shamir_perfect_security (n t : ℕ)
+    (x : Fin n → F) (h_distinct : Function.Injective x) (h_nonzero : ∀ i, x i ≠ 0) :
+    PerfectSecurity (shamirScheme n t x h_distinct h_nonzero)
       (thresholdAccessStructure n t) := by
         intro B hB s s';
         have h_uniform : ∀ s : F, PMF.map (fun r : Fin (t - 1) → F => fun (i : B) 
           => shamir_poly t s r (x i)) 
           (uniform_coeffs t) = PMF.uniformOfFintype (B → F) := by
           apply shamir_shares_uniform;
-          · exact hF;
+          --· exact (FiniteField.card_ge_two F);
           · assumption;
           · assumption;
           · exact lt_of_not_ge fun h => hB <| threshold_auth_iff n t B |>.2 h;
@@ -621,7 +622,7 @@ lemma shamir_polynomial_degree_le (t : ℕ) (s : F) (m : Fin (t - 1) → F) :
       exact h_deg.trans ( Finset.sup_le fun i _ => Nat.succ_le_of_lt i.2 )
 
 
-lemma shamir_interpolation_correct (n t : ℕ) (_hF : Fintype.card F ≥ 2)
+lemma shamir_interpolation_correct (n t : ℕ)
     (x : Fin n → F) (h_distinct : Function.Injective x) (_h_nonzero : ∀ i, x i ≠ 0)
     (s : F) (m : Fin (t - 1) → F)
     (B : Set (Fin n)) (hB : B ∈ (thresholdAccessStructure n t).auth) (ht : t ≠ 0) :
@@ -650,9 +651,9 @@ lemma shamir_interpolation_correct (n t : ℕ) (_hF : Fintype.card F ≥ 2)
         · exact fun h₁ h₂ => False.elim <| h₁ hi
 
 -- Correctness of Shamir secret sharing scheme
-theorem shamir_scheme_correctness (n t : ℕ) (hF : Fintype.card F ≥ 2)
+theorem shamir_scheme_correctness (n t : ℕ)
     (x : Fin n → F) (h_distinct : Function.Injective x) (h_nonzero : ∀ i, x i ≠ 0) (ht : t ≠ 0) :
-    Correctness (shamirScheme n t hF x h_distinct h_nonzero)
+    Correctness (shamirScheme n t x h_distinct h_nonzero)
       (thresholdAccessStructure n t) (shamir_reconstruction n t x) := by
         -- By definition of Shamir's scheme, the polynomial is constructed such that evaluating it at 0 gives the secret.
         have h_poly_eval : ∀ (s : F) (m : Fin (t - 1) → F), (shamir_polynomial t s m).eval 0 = s := by
@@ -662,20 +663,20 @@ theorem shamir_scheme_correctness (n t : ℕ) (hF : Fintype.card F ≥ 2)
           simp  [ Polynomial.eval_finset_sum ];
         intro s r B hB;
         convert h_poly_eval s r using 1;
-        convert congr_arg ( Polynomial.eval 0 ) ( shamir_interpolation_correct n t hF x h_distinct h_nonzero s r B hB ht ) using 1
+        convert congr_arg ( Polynomial.eval 0 ) ( shamir_interpolation_correct n t x h_distinct h_nonzero s r B hB ht ) using 1
 
 
 -- Shamir secret sharing scheme realizes threshold access structure
-def shamirRealizedScheme (n t : ℕ) (hF : Fintype.card F ≥ 2)
+def shamirRealizedScheme (n t : ℕ)
     (x : Fin n → F) (h_distinct : Function.Injective x) (h_nonzero : ∀ i, x i ≠ 0)
-    (ht : t > 0) (htn : t ≤ n)
+    (ht : t > 0)
   : RealizedSecretSharingScheme n (thresholdAccessStructure n t) := {
-  shamirScheme n t hF x h_distinct h_nonzero with
+  shamirScheme n t x h_distinct h_nonzero with
   recon := shamir_reconstruction n t x
-  h_correctness := shamir_scheme_correctness n t hF x h_distinct h_nonzero (ne_of_gt ht)
-  h_security := shamir_perfect_security n t hF x h_distinct h_nonzero ht htn
+  h_correctness := shamir_scheme_correctness n t x h_distinct h_nonzero (ne_of_gt ht)
+  h_security := shamir_perfect_security n t x h_distinct h_nonzero
 }
-
+ 
 end ShamirScheme  -- namespace
 
 end ShamirScheme  --section
@@ -952,6 +953,7 @@ theorem PerfectSecurity_thm {n : ℕ} {p : ℕ} [Fact p.Prime]
   have h_bij := shift_is_bijection h_disjoint h_nonempty h_unauth shares_A (S1 := S1) (S2 := S2)
   rw [← h_bij.image_eq]
   rw [Set.ncard_image_of_injOn h_bij.injOn]
+--  rw [Set.InjOn.ncard_image h_bij.injOn]  -- potential Mathlib version problem
 
 /-
 Helper lemma: The qualified set chosen by GenerateShares is the correct one due to disjointness.
