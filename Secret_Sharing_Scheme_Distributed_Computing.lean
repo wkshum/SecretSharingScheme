@@ -1,7 +1,12 @@
 /-
-Formalize the notion of a secret sharing scheme with a general access structure.
-Show that the Shamir secret sharing scheme is an instance of this general scheme.
-Extend linear secret sharing scheme to distributed matrix multiplication
+ Lean program for the paper 
+ **A Lean Formalization of Perfect Secret Sharing and Secure Distributed Matrix Multiplication**
+ by K. W. Shum and C. W. Sung
+
+- Formalize the notion of a secret sharing scheme with a general access structure.
+- Show that the Shamir secret sharing scheme is an instance of this general scheme.
+- Extend linear secret sharing scheme to distributed matrix multiplication
+
 -/
 
 import Mathlib.Tactic
@@ -12,11 +17,6 @@ import Mathlib.LinearAlgebra.Matrix.Rank
 import Mathlib.LinearAlgebra.Lagrange
 import Mathlib.Data.Set.Card
 
--- set_option maxHeartbeats 0
--- set_option maxRecDepth 4000
--- set_option synthInstance.maxHeartbeats 20000
--- set_option synthInstance.maxSize 128
-
 set_option linter.style.longLine false
 set_option linter.style.refine false
 set_option linter.style.openClassical false
@@ -25,8 +25,12 @@ set_option linter.style.induction false
 
 noncomputable section
 
-/-
+/-!
 Definition of Access Structure.
+Suppose there are n participants, represented by the term 0,1,...n-1 in `Fin n`
+
+An access structure consists of a set of subsets of of {0,1,...,n-1}
+and a proof that this set of sets is satisfies the monotone property.
 -/
 structure AccessStructure (n : ℕ) where
   auth : Set (Set (Fin n))
@@ -262,7 +266,7 @@ namespace SecretSharingScheme
 open AccessStructure
 
 /-
-Given a share s and a random string r, the restriction of Π(s,r) to A 
+Given a share s and a random string r, the restriction of Π(s,r) to A
 is denoted `shares_of_set`. We may also denote it by Π_A(s,r)
 
 `shares_of_set` is a function that maps s, r, and A to
@@ -272,8 +276,7 @@ def shares_of_set {n : ℕ} (scheme : SecretSharingScheme n)
   (s : scheme.Secret) (r : scheme.Random) (A : Set (Fin n)) : (i : A) → scheme.Share i :=
   fun i => scheme.dealer s r i
 
-/-! The type of **reconstruction algorithm** 
-
+/-! Reconstruction algorithm
 For every authorized subset `B`, the reconstruction algorithm is a function that
 takes the shares in `B` as input and return a term of type `Secret`
 -/
@@ -288,14 +291,14 @@ def Correctness {n : ℕ} (S : SecretSharingScheme n) (Γ : AccessStructure n) (
   recon B hB (shares_of_set S s r B) = s
 
 /-
-For every unauthorized set B ∉ Γ, the shares held by B reveal 
+For every unauthorized set B ∉ Γ, the shares held by B reveal
 no information about the secret.
 
 Fix an unauthorized set B. For each secret s, (shares_of_set S s r B ) with r random
 gives a distribution on |B|-tuple of shares. Perfect security requires that
 this distribution is the same for all secret s. The equation in the condition is
 $$
-\Pr(\Pi_T(s_1,r) = \langle s_j\rangle_{j\in T}) = 
+\Pr(\Pi_T(s_1,r) = \langle s_j\rangle_{j\in T}) =
 \Pr(\Pi_T(s_2,r) = \langle s_j\rangle_{j\in T} )
 $$
 -/
@@ -424,13 +427,11 @@ variable {F : Type*} [Field F] [Fintype F] -- [DecidableEq F]
 def shamir_poly (t : ℕ) (s : F) (m : Fin (t - 1) → F) (z : F) : F :=
   s + ∑ j : Fin (t - 1), m j * z ^ (j.val + 1)
 
-
 /-
 The uniform distribution on the coefficients.
 -/
 noncomputable def uniform_coeffs (t : ℕ) : PMF (Fin (t - 1) → F) :=
   PMF.uniformOfFintype (Fin (t - 1) → F)
-
 
 /-
 The cardinality of a finite field is at least 2.
@@ -455,7 +456,6 @@ def shamirScheme (n t : ℕ)
   hRandomNonempty := inferInstance
   μ := uniform_coeffs t
   dealer := fun s m i => shamir_poly t s m (x i)
-
 
 
 theorem threshold_auth_iff (n t : ℕ) (B : Set (Fin n)) :
@@ -588,8 +588,8 @@ theorem shamir_perfect_security (n t : ℕ)
     PerfectSecurity (shamirScheme n t x h_distinct h_nonzero)
       (thresholdAccessStructure n t) := by
         intro B hB s s';
-        have h_uniform : ∀ s : F, PMF.map (fun r : Fin (t - 1) → F => fun (i : B) 
-          => shamir_poly t s r (x i)) 
+        have h_uniform : ∀ s : F, PMF.map (fun r : Fin (t - 1) → F => fun (i : B)
+          => shamir_poly t s r (x i))
           (uniform_coeffs t) = PMF.uniformOfFintype (B → F) := by
           apply shamir_shares_uniform;
           --· exact (FiniteField.card_ge_two F);
@@ -610,6 +610,7 @@ lemma shamir_polynomial_eval (t : ℕ) (s : F) (m : Fin (t - 1) → F) (z : F) :
       -- By definition of polynomial evaluation, we can expand the left-hand side to match the right-hand side.
       simp [shamir_poly]
 
+-- Shamir polynomial has degree less the or equal to t-1
 lemma shamir_polynomial_degree_le (t : ℕ) (s : F) (m : Fin (t - 1) → F) :
     (shamir_polynomial t s m).natDegree ≤ t - 1 := by
       -- The polynomial is constructed by adding a constant term s and a sum of terms m_i * x^(i+1). Each term in the sum is a monomial of degree i+1, where i ranges from 0 to t-2. The highest degree term here is when i is t-2, which gives x^(t-1). So the degree of the polynomial should be t-1.
@@ -621,7 +622,7 @@ lemma shamir_polynomial_degree_le (t : ℕ) (s : F) (m : Fin (t - 1) → F) :
         exact le_trans ( Polynomial.natDegree_add_le _ _ ) ( max_le ( by aesop ) h_deg_sum );
       exact h_deg.trans ( Finset.sup_le fun i _ => Nat.succ_le_of_lt i.2 )
 
-
+-- Prove that the interpoloation formula for reconstruction is correct
 lemma shamir_interpolation_correct (n t : ℕ)
     (x : Fin n → F) (h_distinct : Function.Injective x) (_h_nonzero : ∀ i, x i ≠ 0)
     (s : F) (m : Fin (t - 1) → F)
@@ -676,7 +677,7 @@ def shamirRealizedScheme (n t : ℕ)
   h_correctness := shamir_scheme_correctness n t x h_distinct h_nonzero (ne_of_gt ht)
   h_security := shamir_perfect_security n t x h_distinct h_nonzero
 }
- 
+
 end ShamirScheme  -- namespace
 
 end ShamirScheme  --section
@@ -691,7 +692,7 @@ section DisjointAccessStructure
 open AccessStructure
 
 open BigOperators
-open Classical 
+open Classical
 variable {n : ℕ} {p : ℕ} [Fact p.Prime]
 
 
@@ -791,9 +792,9 @@ theorem pivot_mem {Q : Set (Fin n)} {A : Set (Fin n)} (hQ : Q.Nonempty) (x : Fin
   pivot Q A = some x → x ∈ Q ∧ x ∉ A ∧ x ≠ (Set.toFinite Q).toFinset.max' ((Set.toFinite Q).toFinset_nonempty.mpr hQ) := by
     intros hx;
     unfold pivot at hx;
-    split_ifs at hx ; 
+    split_ifs at hx ;
     · simp_all [ Finset.max'_eq_sup' ];
-      · have := Classical.choose_spec ‹∃ x ∈ Q, x∉A›; 
+      · have := Classical.choose_spec ‹∃ x ∈ Q, x∉A›;
         aesop;
     · grind
 
@@ -806,7 +807,7 @@ theorem shift_eq_zero_on_A {Qs : Set (Set (Fin n))} {A : Set (Fin n)} {S1 S2 : Z
     (i : Fin n) (hi : i ∈ A) :
     shift Qs A S1 S2 i = 0 := by
   unfold shift
-  
+
   split_ifs with h
   · obtain ⟨Q, hQ, h_pivot⟩ := h
     -- pivot Q A = some i implies i ∉ A
@@ -868,7 +869,7 @@ theorem generateShares_shift_eq {Qs : Set (Set (Fin n))} {A : Set (Fin n)} {S1 S
     (h_unauth : ∀ Q ∈ Qs, ¬(Q ⊆ A))
     (ρ : Fin n → ZMod p)
     (i : Fin n) (hi : i ∈ A) :
-    GenerateShares Qs S2 (ρ + shift Qs A S1 S2) i = 
+    GenerateShares Qs S2 (ρ + shift Qs A S1 S2) i =
     GenerateShares Qs S1 ρ i := by
   -- By definition of GenerateShares, we need to consider three cases: when Q contains i, when Q does not contain i, and when Q is not in Qs.
   by_cases hQ : ∃ Q ∈ Qs, i ∈ Q;
@@ -887,7 +888,7 @@ theorem generateShares_shift_eq {Qs : Set (Set (Fin n))} {A : Set (Fin n)} {S1 S
     · exact Classical.choose hQ;
     · exact Classical.choose_spec hQ |>.1;
     simp +decide [ ← ‹i = _›];
-    grind +ring;
+    grind;
   · -- Since there's no Q in Qs containing i, by definition of GenerateShares, both shares should be none. So, the equality holds trivially because both sides are none.
     simp [GenerateShares, hQ]
 
@@ -917,6 +918,7 @@ theorem shift_is_bijection {Qs : Set (Set (Fin n))} {A : Set (Fin n)} {S1 S2 : Z
           · simp +decide [ ← hρ ];
             rw [ eq_comm ]
 
+
 /-
 Perfect security theorem: The number of random tapes consistent with a given set of shares on an unauthorized set is independent of the secret.
 -/
@@ -930,7 +932,7 @@ theorem PerfectSecurity {n : ℕ} {p : ℕ} [Fact p.Prime]
     (S1 S2 : ZMod p) :
     Set.ncard {ρ | ∀ (i : Fin n) (hi : i ∈ A), GenerateShares Qs S1 ρ i = shares_A i hi} =
     Set.ncard {ρ | ∀ (i : Fin n) (hi : i ∈ A), GenerateShares Qs S2 ρ i = shares_A i hi} := by
-      -- By Lemma 25, the shift map is a bijection.
+      -- the shift map is a bijection.
       have h_bijection : Set.BijOn (fun ρ => ρ + shift Qs A S1 S2)
         {ρ : Fin n → ZMod p | ∀ i hi, GenerateShares Qs S1 ρ i = shares_A i hi}
         {ρ : Fin n → ZMod p | ∀ i hi, GenerateShares Qs S2 ρ i = shares_A i hi} := by
@@ -938,7 +940,7 @@ theorem PerfectSecurity {n : ℕ} {p : ℕ} [Fact p.Prime]
       rw [ Set.ncard_def, Set.ncard_def, Set.encard_congr ( h_bijection.equiv ) ]
 
 /-
-Perfect security theorem: The number of random tapes consistent with a given set of shares on an unauthorized set is independent of the secret.
+Perfect security theorem
 -/
 theorem PerfectSecurity_thm {n : ℕ} {p : ℕ} [Fact p.Prime]
     (Qs : Set (Set (Fin n)))
@@ -978,7 +980,7 @@ theorem GenerateShares_isValid {n : ℕ} {p : ℕ} [Fact p.Prime]
     (h_nonempty : ∀ Q ∈ Qs, Q.Nonempty)
     (S : ZMod p) (ρ : Fin n → ZMod p) :
     IsValidSharing Qs S (GenerateShares Qs S ρ) := by
-  
+
   refine ⟨?h1, ?h2, ?h3⟩
   /- 1) Participants not in any Q ∈ Qs get `none`. -/
   · intro i hi
@@ -998,13 +1000,13 @@ theorem GenerateShares_isValid {n : ℕ} {p : ℕ} [Fact p.Prime]
   · intro Q hQ
     -- Define the finite set Qfin.
     let Qfin : Finset (Fin n) := (Set.toFinite Q).toFinset
-    
+
     -- Establish non-emptiness to pick a 'last' element.
     have hQ_nonempty : Q.Nonempty := h_nonempty Q hQ
     have hQfin_nonempty : Qfin.Nonempty := by
       rw [Set.Finite.toFinset_nonempty]
       exact hQ_nonempty
-      
+
     let last := Qfin.max' hQfin_nonempty
     have hlast_mem : last ∈ Qfin := Qfin.max'_mem hQfin_nonempty
 
@@ -1012,13 +1014,13 @@ theorem GenerateShares_isValid {n : ℕ} {p : ℕ} [Fact p.Prime]
     let g : Fin n → ZMod p := fun i => (GenerateShares Qs S ρ i).getD 0
 
     -- Goal: (∑ i : Fin n, if i ∈ Q then g i else 0) = S
-    
+
     -- Step 1: Restrict the sum from 'Fin n' to 'Qfin'.
     -- The LHS is sum_{i \in Fin n} (if i \in Q then g i else 0).
     -- This is exactly sum_{i \in Qfin} g i, because Qfin contains exactly the i's where i \in Q.
     have h_sum_restrict : (∑ i : Fin n, if i ∈ Q then g i else 0) = ∑ i ∈ Qfin, g i := by
        rw [← Finset.sum_filter]
-       
+
        -- We now need to show: ∑ i in univ.filter (· ∈ Q), g i = ∑ i in Qfin, g i
        apply Finset.sum_congr
        · -- Goal: univ.filter (· ∈ Q) = Qfin
@@ -1039,34 +1041,34 @@ theorem GenerateShares_isValid {n : ℕ} {p : ℕ} [Fact p.Prime]
       intro i hi
       dsimp [g]
       -- We are in Q.
-      have hiQ : i ∈ Q := by 
-        have : i∈Q ↔ i ∈ Qfin := by 
+      have hiQ : i ∈ Q := by
+        have : i∈Q ↔ i ∈ Qfin := by
           have h1 : i ∈ Q ↔ Q i := by rfl
           simp only [Qfin]
           simp only [Set.toFinite_toFinset, Set.mem_toFinset]
         exact this.mpr hi
-      
+
       -- Existence witness for GenerateShares
       have hex : ∃ Q' ∈ Qs, i ∈ Q' := ⟨Q, hQ, hiQ⟩
-      
+
       -- Expand GenerateShares
       unfold GenerateShares
       rw [dif_pos hex]
-      
+
       -- Crucial: The chosen Q' must be Q by disjointness
-      have h_Q_eq : Classical.choose hex = Q := 
+      have h_Q_eq : Classical.choose hex = Q :=
         GenerateShares_Q_eq h_disjoint hQ hiQ
-      
+
       -- Substitute Q for the chosen set.
       -- This makes the internal 'Q_finset' and 'last' definitionally equal to our 'Qfin' and 'last'
       -- because they are defined by the same terms on the same set Q.
       simp only [h_Q_eq]
       split_ifs <;> rfl
-      
+
 
     -- Step 3: Split the sum into 'last' and 'others'.
     rw [Finset.sum_eq_add_sum_diff_singleton hlast_mem]
-    
+
     -- Evaluate the 'last' term
     rw [hg_in_Q last hlast_mem]
     rw [if_pos rfl]
@@ -1080,12 +1082,12 @@ theorem GenerateShares_isValid {n : ℕ} {p : ℕ} [Fact p.Prime]
       -- x is in Qfin.erase last, so x ∈ Qfin and x ≠ last
       have hx_in : x ∈ Qfin := Finset.mem_of_mem_erase hx
       have hx_ne : x ≠ last := Finset.ne_of_mem_erase hx
-      
+
       rw [hg_in_Q x hx_in]
       rw [if_neg hx_ne]
 
     rw [h_sum_others]
-    
+
     -- Step 4: Final Algebra
     -- (S - sum) + sum = S
     ring
@@ -1112,7 +1114,7 @@ theorem ReconstructSecret_correct {n : ℕ} {p : ℕ} [Fact p.Prime]
   aesop
 
 
-open AccessStructure SecretSharingScheme 
+open AccessStructure SecretSharingScheme
 
 -- We define the specific Access Structure for Disjoint Sets
 def DisjointAS (Qs : Set (Set (Fin n))) : AccessStructure n where
@@ -1136,9 +1138,9 @@ noncomputable def DisjointScheme {n : ℕ} (p : ℕ)
   μ := PMF.uniformOfFintype (Fin n → ZMod p)
 }
 
-noncomputable def DisjointReconstruction {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set (Set (Fin n))) : 
-  ReconstructionAlgorithm (DisjointScheme p Qs) (DisjointAS Qs) := 
-  fun B _hB shares => 
+noncomputable def DisjointReconstruction {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set (Set (Fin n))) :
+  ReconstructionAlgorithm (DisjointScheme p Qs) (DisjointAS Qs) :=
+  fun B _hB shares =>
     let full_shares : Fin n → Option (ZMod p) := fun i =>
       if h : i ∈ B then shares ⟨i, h⟩ else none
     match ReconstructSecret Qs full_shares B with
@@ -1151,10 +1153,6 @@ theorem DisjointScheme_Correctness {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set 
     Correctness (DisjointScheme p Qs) (DisjointAS Qs) (DisjointReconstruction p Qs) := by
   intro s r B hB
   simp [DisjointReconstruction, shares_of_set, DisjointScheme]
-  -- We need to handle the type mismatch between the abstract `shares` 
-  -- and the concrete `GenerateShares`.
-  -- The `shares` passed to `recon` is `fun i => GenerateShares Qs s r i`.
-  -- `DisjointReconstruction` converts this to `full_shares`.
   -- We need to show `full_shares` behaves like `GenerateShares` on `B`.
   -- And since `B` contains a qualified set, `ReconstructSecret` should work.
   have h_recon := ReconstructSecret_correct Qs h_disjoint h_nonempty s r B hB
@@ -1162,8 +1160,8 @@ theorem DisjointScheme_Correctness {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set 
   -- We need to show that `ReconstructSecret` with `full_shares` returns `some s`.
   convert congr_arg Option.get! h_recon using 1;
   unfold ReconstructSecret;
-  split_ifs <;> 
-  simp --  [ *, Finset.sum_ite ];
+  split_ifs <;>
+  simp
   · exact Finset.sum_congr rfl fun x hx => by rw [ if_pos ( by exact Classical.choose_spec ( ‹∃ Q ∈ Qs, Q ⊆ B› ) |>.2 ( by simpa using hx ) ) ] ;
   · rfl
 
@@ -1203,10 +1201,12 @@ theorem DisjointScheme_Security {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set (Se
       rfl;
   simp_all [ Set.ncard_eq_toFinset_card', tsum_fintype ];
   simp_all [ eq_comm, Finset.sum_ite ];
-  convert congr_arg ( · * ( p ^ n : ENNReal ) ⁻¹ ) ( congr_arg ( fun x : ℕ => ( x : ENNReal ) ) h_card ) 
+  convert congr_arg ( · * ( p ^ n : ENNReal ) ⁻¹ ) ( congr_arg ( fun x : ℕ => ( x : ENNReal ) ) h_card )
   -- using 1
 
-
+/-
+  The function `DisjointReconstruction` realizes the disjoint access structure
+-/
 noncomputable def DisjointRealizedScheme {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs : Set (Set (Fin n)))
     (h_disjoint : Qs.PairwiseDisjoint id)
     (h_nonempty : ∀ Q ∈ Qs, Q.Nonempty) :
@@ -1216,18 +1216,6 @@ noncomputable def DisjointRealizedScheme {n : ℕ} (p : ℕ) [Fact p.Prime] (Qs 
   h_correctness := DisjointScheme_Correctness p Qs h_disjoint h_nonempty
   h_security := DisjointScheme_Security p Qs h_disjoint h_nonempty
 }
-
--- noncomputable def DisjointRealizedScheme {n : ℕ} (p : ℕ) [Fact p.Prime]
---     (Qs : Set (Set (Fin n)))
---     (h_disjoint : Qs.PairwiseDisjoint id)
---     (h_nonempty : ∀ Q ∈ Qs, Q.Nonempty) :
---     RealizedSecretSharingScheme n (DisjointAS Qs) :=
--- RealizedSecretSharingScheme.mk
---   (DisjointScheme p Qs)
---   (DisjointReconstruction p Qs)
---   (DisjointScheme_Correctness p Qs h_disjoint h_nonempty)
---   (DisjointScheme_Security p Qs h_disjoint h_nonempty)
-
 
 end DisjointAccessStructure
 
@@ -1248,7 +1236,7 @@ structure DistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure n) (F 
   Secret : Type*
   Share : Fin n → Type*
   Random : Type* -- We need Randomness for LSSS compatibility
-  
+
   -- Protocol Functions
   encode : Secret → Random → (i : Fin n) → Share i
   worker_compute : {d : ℕ} → (i : Fin n) → (Fin d → Share i) → (Fin d → F) → Share i
@@ -1258,9 +1246,9 @@ structure DistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure n) (F 
   [secret_add : AddCommMonoid Secret]
   [secret_module : Module F Secret]
 
-  -- **RENAMED FIELD** to avoid collision with LSSS.h_correctness
-  h_distributed_correctness : 
-    ∀ {d : ℕ} (A : Fin d → Secret) (K : Fin d → Random) (x : Fin d → F) 
+  -- correctness
+    h_distributed_correctness :
+    ∀ {d : ℕ} (A : Fin d → Secret) (K : Fin d → Random) (x : Fin d → F)
       (B : Set (Fin n)) (hB : B ∈ Γ.auth),
     let shares (j : Fin d) (i : Fin n) := encode (A j) (K j) i
     let responses (i : B) := worker_compute i (fun j => shares j i) x
@@ -1268,20 +1256,19 @@ structure DistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure n) (F 
 
 /-!
 ### The Linear Secret Sharing Scheme (LSSS)
-This is the cryptographic primitive.
 -/
 structure LinearSecretSharingScheme (n : ℕ) (Γ : AccessStructure n) (F : Type*) [Field F]
     extends RealizedSecretSharingScheme n Γ where
-  
+
   -- Algebraic Structures
   [secret_add : AddCommMonoid Secret]
   [random_add : AddCommMonoid Random]
   [share_add : ∀ i, AddCommMonoid (Share i)]
-  
+
   [secret_module : Module F Secret]
   [random_module : Module F Random]
   [share_module : ∀ i, Module F (Share i)]
-  
+
   -- Linearity of Dealer
   dealer_linear : (Secret × Random) →ₗ[F] (Π i, Share i)
   h_dealer_eq : ∀ s r, dealer_linear (s, r) = dealer s r
@@ -1335,14 +1322,14 @@ lemma sum_prod_smul
 -- The Homomorphism Lemma
 lemma worker_homomorphism
     {d : ℕ} (A : Fin d → L.Secret) (K : Fin d → L.Random) (x : Fin d → F) (i : Fin n) :
-    L.worker_compute_impl i (fun j => L.dealer (A j) (K j) i) x = 
+    L.worker_compute_impl i (fun j => L.dealer (A j) (K j) i) x =
     L.dealer (target_computation L A x) (aggregate_key L K x) i := by
-  
+
   let Ψ := L.dealer_linear
-  calc worker_compute_impl L i (fun j => L.dealer (A j) (K j) i) x 
+  calc worker_compute_impl L i (fun j => L.dealer (A j) (K j) i) x
     -- 1. Definition of worker_compute
     = ∑ j, x j • L.dealer (A j) (K j) i := rfl
-    
+
     -- 2. Convert L.dealer to Ψ (the LinearMap) inside the sum
     _ = ∑ j, x j • (Ψ (A j, K j) i) := by
       apply Finset.sum_congr rfl
@@ -1367,7 +1354,7 @@ lemma worker_homomorphism
     -- 6. Combine the arguments inside the pair
     -- ∑ (x • A, x • K) = (∑ x A, ∑ x K)
     _ = (Ψ (∑ j, x j • A j, ∑ j, x j • K j)) i := by
-      rw [sum_prod_smul]    
+      rw [sum_prod_smul]
 
     -- 7. Convert back to definitions of target_computation and aggregate_key
     _ = Ψ (target_computation L A x, aggregate_key L K x) i := rfl
@@ -1382,19 +1369,19 @@ theorem distributed_computing_correctness
     (B : Set (Fin n)) (hB : B ∈ Γ.auth) :
     let worker_responses (i : B) := L.worker_compute_impl i (fun j => L.dealer (A j) (K j) i) x
     L.recon B hB worker_responses = target_computation L A x := by
-  
+
   have h_valid_shares : (fun i : B => L.worker_compute_impl i (fun j => L.dealer (A j) (K j) i) x) =
       shares_of_set L.toSecretSharingScheme (target_computation L A x) (aggregate_key L K x) B := by
     ext i
     apply worker_homomorphism
-  
+
   rw [h_valid_shares]
   exact L.h_correctness (target_computation L A x) (aggregate_key L K x) B hB
 
 
 structure SecureDistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure n) (F : Type*) [Field F]
     extends LinearSecretSharingScheme n Γ F where
-  /--
+  /-
   Construct the DistributedMatrixMultiplication instance using the
   definitions and theorems from the LinearSecretSharingScheme namespace.
   -/
@@ -1402,17 +1389,17 @@ structure SecureDistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure 
     Secret := Secret
     Share := Share
     Random := Random
-    
+
     -- Map LSSS functions to Protocol functions
     encode := dealer
     reconstruct := recon
     worker_compute := fun i shares x => worker_compute_impl toLinearSecretSharingScheme i shares x
-    
+
     -- Instances
     secret_add := secret_add
     secret_module := secret_module
-    
-    -- **Proof of correctness**: We simply call the theorem we proved above.
+
+    -- Proof of correctness
     h_distributed_correctness := by
       intros d A K x B hB
       apply distributed_computing_correctness toLinearSecretSharingScheme
@@ -1420,4 +1407,4 @@ structure SecureDistributedMatrixMultiplication (n : ℕ) (Γ : AccessStructure 
 
 end LinearSecretSharingScheme
 
-end -- noncomputable 
+end -- noncomputable
