@@ -19,6 +19,6 @@ The Lean program is divided into 5 parts
  
 5. Distributed hierarchy
 
-The Lean programs can be found in [https://github.com/wkshum/SecretSharingScheme]
+A Lean Verso documentation can be found in [https://github.com/wkshum/SecretSharingScheme](https://wkshum.github.io/SecretSharingScheme/)
 
 The programs are compiled using Mathlib 4.29.0.
