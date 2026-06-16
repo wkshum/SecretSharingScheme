@@ -22,3 +22,5 @@ The Lean program is divided into 5 parts
 A Lean Verso documentation can be found in [https://github.com/wkshum/SecretSharingScheme](https://wkshum.github.io/SecretSharingScheme/)
 
 The programs are compiled using Mathlib 4.29.0.
+
+The main file is SecretSharingScheme.lean
